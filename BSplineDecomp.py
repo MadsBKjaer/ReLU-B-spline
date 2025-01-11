@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
-import numpy as np
 from torch import Tensor, empty, eye
 
 
 class BSplineNN(nn.Module):
-    __constants__ = ["features", "degree", "n_bplines"]
+    __constants__ = ["features", "degree"]
     features: int
     degree: int
     n_bsplines: int
@@ -53,13 +52,8 @@ class BSplineNN(nn.Module):
     def knots_sorted(self) -> bool:
         return (self.knots == self.knots.sort()[0]).all()
 
-    def add_knot(self, position: float) -> None:
-        self.knots = nn.Parameter(
-            torch.cat(
-                [self.knots, torch.tensor(position).broadcast_to((self.features, 1))]
-            )
-        )
-
+    def add_knot(self, position: Tensor) -> None:
+        self.knots = nn.Parameter(torch.cat([self.knots, position]))
         self.sort_knots()
         self.n_bsplines += 1
 
