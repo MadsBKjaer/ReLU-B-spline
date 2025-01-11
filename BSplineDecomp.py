@@ -28,7 +28,7 @@ class BSplineNN(nn.Module):
 
         # Select proper ReLU function depending on degree
         if degree == 0:
-            self.relu_power = lambda x: torch.heaviside(x, Tensor(1))
+            self.relu_power = lambda x: torch.heaviside(x, torch.tensor(1))
         else:
             self.relu_power = lambda x: nn.functional.relu(x).pow(degree)
 
@@ -53,82 +53,14 @@ class BSplineNN(nn.Module):
     def knots_sorted(self) -> bool:
         return (self.knots == self.knots.sort()[0]).all()
 
-    def add_knot(self, index: int) -> None:
-        index = np.clip(index, 0, self.n_bsplines + self.degree)
-
-        if index == 0:
-            self.knots = nn.Parameter(
-                torch.cat(
-                    [
-                        (self.knots[:, 0] - self.knots[:, :2].diff()).broadcast_to(
-                            (self.features, 1)
-                        ),
-                        self.knots,
-                    ],
-                    dim=-1,
-                )
+    def add_knot(self, position: float) -> None:
+        self.knots = nn.Parameter(
+            torch.cat(
+                [self.knots, torch.tensor(position).broadcast_to((self.features, 1))]
             )
+        )
 
-            self.weights = nn.Parameter(
-                torch.cat(
-                    [
-                        self.weights[:, 0].broadcast_to((self.features, 1)) * 0,
-                        self.weights,
-                    ],
-                    dim=-1,
-                )
-            )
-
-        elif index == self.n_bsplines + self.degree:
-            self.knots = nn.Parameter(
-                torch.cat(
-                    [
-                        self.knots,
-                        (self.knots[:, -1] + self.knots[:, -2:].diff()).broadcast_to(
-                            (self.features, 1)
-                        ),
-                    ],
-                    dim=-1,
-                )
-            )
-
-            self.weights = nn.Parameter(
-                torch.cat(
-                    [
-                        self.weights,
-                        self.weights[:, -1].broadcast_to((self.features, 1)) * 0,
-                    ],
-                    dim=-1,
-                )
-            )
-
-        else:
-            self.knots = nn.Parameter(
-                torch.cat(
-                    [
-                        self.knots[:, :index],
-                        self.knots[:, index - 1 : index + 1]
-                        .mean()
-                        .broadcast_to((self.features, 1)),
-                        self.knots[:, index:],
-                    ],
-                    dim=-1,
-                )
-            )
-
-            self.weights = nn.Parameter(
-                torch.cat(
-                    [
-                        self.weights[:, :index],
-                        self.weights[:, index : index + 2]
-                        .mean()
-                        .broadcast_to((self.features, 1)),
-                        self.weights[:, index:],
-                    ],
-                    dim=-1,
-                )
-            )
-
+        self.sort_knots()
         self.n_bsplines += 1
 
     def forward(self, input: Tensor) -> Tensor:
